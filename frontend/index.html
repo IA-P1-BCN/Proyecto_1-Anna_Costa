@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Taxímetro Digital — TaxiTech Solutions</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <h1>🚕 Taxímetro Digital</h1>
+  <p class="subtitulo">TaxiTech Solutions</p>
+
+  <div class="panel">
+    <span id="estado" class="estado inactivo">Sin carrera</span>
+    <div id="importe" class="importe">0.00 €</div>
+
+    <div class="botones">
+      <button id="btn-iniciar">Iniciar carrera</button>
+      <button id="btn-parado" disabled>Parado</button>
+      <button id="btn-movimiento" disabled>En movimiento</button>
+      <button id="btn-finalizar" disabled>Finalizar carrera</button>
+    </div>
+
+    <p id="mensaje" class="mensaje"></p>
+  </div>
+
+  <div class="historial">
+    <h2>Historial de carreras</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Estado</th>
+          <th>Importe</th>
+        </tr>
+      </thead>
+      <tbody id="historial-body"></tbody>
+    </table>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

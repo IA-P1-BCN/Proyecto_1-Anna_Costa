@@ -1,0 +1,160 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: #0f172a;
+  color: #f8fafc;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px;
+}
+
+h1 {
+  font-size: 1.4rem;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.subtitulo {
+  color: #94a3b8;
+  margin-top: 0;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.panel {
+  width: 100%;
+  max-width: 420px;
+  background: #1e293b;
+  border-radius: 16px;
+  padding: 24px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.estado {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+
+.estado.parado {
+  background: #facc15;
+  color: #422006;
+}
+
+.estado.movimiento {
+  background: #22c55e;
+  color: #052e16;
+}
+
+.estado.inactivo {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+.importe {
+  font-size: 3rem;
+  font-weight: 700;
+  margin: 8px 0 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+.botones {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+button {
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 20px 12px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.05s ease;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+#btn-iniciar {
+  grid-column: span 2;
+  background: #2563eb;
+  color: white;
+  font-size: 1.3rem;
+  padding: 22px;
+}
+
+#btn-parado {
+  background: #facc15;
+  color: #422006;
+}
+
+#btn-movimiento {
+  background: #22c55e;
+  color: #052e16;
+}
+
+#btn-finalizar {
+  grid-column: span 2;
+  background: #ef4444;
+  color: white;
+}
+
+.mensaje {
+  min-height: 1.2em;
+  color: #f87171;
+  font-size: 0.9rem;
+  margin-top: 8px;
+}
+
+.historial {
+  width: 100%;
+  max-width: 420px;
+  margin-top: 24px;
+}
+
+.historial h2 {
+  font-size: 1rem;
+  color: #cbd5e1;
+}
+
+.historial table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #1e293b;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.historial th,
+.historial td {
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #334155;
+}
+
+.historial th {
+  color: #94a3b8;
+  font-weight: 600;
+}
