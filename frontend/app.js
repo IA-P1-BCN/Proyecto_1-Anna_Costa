@@ -329,6 +329,32 @@ formTarifas.addEventListener("submit", async (evento) => {
   }
 });
 
+const avisoServidorEl = document.getElementById("aviso-servidor");
+const avisoServidorTextoEl = document.getElementById("aviso-servidor-texto");
+
+// El backend (Render, plan gratuito) se duerme tras un rato sin uso y tarda
+// unos segundos en arrancar: avisamos y esperamos a que /health responda.
+async function esperarServidor() {
+  if (!avisoServidorEl) return;
+  const inicio = Date.now();
+  while (Date.now() - inicio < 120000) {
+    try {
+      const respuesta = await fetch(`${API_BASE}/health`, { cache: "no-store" });
+      if (respuesta.ok) {
+        avisoServidorEl.classList.add("listo");
+        avisoServidorTextoEl.textContent = "Servidor listo.";
+        setTimeout(() => avisoServidorEl.classList.add("oculto"), 1500);
+        setTimeout(() => (avisoServidorEl.hidden = true), 2000);
+        return;
+      }
+    } catch {}
+    await new Promise((resolver) => setTimeout(resolver, 3000));
+  }
+  avisoServidorTextoEl.textContent = "El servidor no responde. Recarga la página en unos segundos.";
+}
+
+esperarServidor();
+
 const pieAnioEl = document.getElementById("pie-anio");
 if (pieAnioEl) pieAnioEl.textContent = new Date().getFullYear();
 

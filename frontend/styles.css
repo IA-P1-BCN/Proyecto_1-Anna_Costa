@@ -76,6 +76,57 @@ body {
   text-align: center;
 }
 
+.aviso-servidor {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  color: #e2e8f0;
+  font-size: 0.9rem;
+  transition: opacity 0.4s ease;
+}
+
+.aviso-servidor.listo {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.aviso-servidor.oculto {
+  opacity: 0;
+}
+
+.aviso-spinner {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(226, 232, 240, 0.3);
+  border-top-color: #ff299c;
+  border-radius: 999px;
+  animation: girar 0.8s linear infinite;
+}
+
+.aviso-servidor.listo .aviso-spinner {
+  display: none;
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aviso-spinner {
+    animation: none;
+  }
+}
+
 .panel {
   width: 100%;
   max-width: 420px;
