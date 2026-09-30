@@ -27,6 +27,7 @@
 
 - **App:** [taxy-py.vercel.app](https://taxy-py.vercel.app/)
 - **API:** [taximetro-api.onrender.com/health](https://taximetro-api.onrender.com/health)
+- **Tablero Kanban:** [GitHub Projects](https://github.com/users/costanna/projects/3) (una columna por fase)
 
 El backend está en el plan gratuito de Render: si lleva un rato sin uso, la
 primera petición puede tardar unos segundos en "despertar" (cold start).
