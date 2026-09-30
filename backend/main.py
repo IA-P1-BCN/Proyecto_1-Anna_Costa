@@ -128,9 +128,18 @@ def health():
 
 @app.post("/auth/registro", status_code=201)
 def registro(datos: RegistroUsuario, db: Session = Depends(get_db)):
-    if auth.existe_usuario(db, datos.username):
+    username = datos.username.strip()
+    if not 3 <= len(username) <= 30:
+        raise HTTPException(
+            status_code=400, detail="El usuario debe tener entre 3 y 30 caracteres."
+        )
+    if len(datos.password) < 8:
+        raise HTTPException(
+            status_code=400, detail="La contraseña debe tener al menos 8 caracteres."
+        )
+    if auth.existe_usuario(db, username):
         raise HTTPException(status_code=409, detail="Ese usuario ya existe.")
-    auth.crear_usuario(db, datos.username, datos.password)
+    auth.crear_usuario(db, username, datos.password)
     return {"mensaje": "Usuario creado."}
 
 

@@ -1,6 +1,11 @@
 import getpass
 
-from taximetro.auth import CredencialesInvalidasError, GestorUsuarios
+from taximetro.auth import (
+    CredencialesInvalidasError,
+    CredencialesNoValidasError,
+    GestorUsuarios,
+    validar_credenciales_nuevas,
+)
 from taximetro.config import cargar_tarifas
 from taximetro.core import ESTADO_MOVIMIENTO, ESTADO_PARADO, Taximetro
 from taximetro.logger import get_logger
@@ -15,8 +20,14 @@ MAX_INTENTOS_LOGIN = 3
 def autenticar(gestor):
     if not gestor.existe_algun_usuario():
         print("\n🔐 Primer arranque: crea el usuario del taxímetro.")
-        username = input("Nuevo usuario: ").strip()
-        password = getpass.getpass("Nueva contraseña: ")
+        while True:
+            username = input("Nuevo usuario: ")
+            password = getpass.getpass("Nueva contraseña: ")
+            try:
+                username = validar_credenciales_nuevas(username, password)
+                break
+            except CredencialesNoValidasError as exc:
+                print(f"⚠️  {exc}")
         gestor.crear_usuario(username, password)
         logger.info("Usuario inicial creado desde CLI: %s", username)
         print(f"✅ Usuario '{username}' creado.")

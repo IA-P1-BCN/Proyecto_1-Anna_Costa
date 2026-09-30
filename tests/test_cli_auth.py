@@ -50,3 +50,15 @@ def test_login_se_recupera_tras_un_fallo(gestor, monkeypatch):
     username = autenticar(gestor)
 
     assert username == "taxista1"
+
+
+def test_primer_arranque_repite_si_las_credenciales_no_son_validas(gestor, monkeypatch, capsys):
+    usuarios = iter(["", "taxista1"])
+    claves = iter(["corta", "clave-segura-123"])
+    monkeypatch.setattr("builtins.input", lambda _: next(usuarios))
+    monkeypatch.setattr("getpass.getpass", lambda _: next(claves))
+
+    username = autenticar(gestor)
+
+    assert username == "taxista1"
+    assert "entre 3 y 30" in capsys.readouterr().out

@@ -5,7 +5,7 @@
 <div align="center">
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)
-![Estado](https://img.shields.io/badge/Estado-En%20desarrollo-yellow)
+![Estado](https://img.shields.io/badge/Estado-Desplegado-brightgreen)
 ![Sprint](https://img.shields.io/badge/Sprint-1-orange)
 ![Prioridad](https://img.shields.io/badge/Prioridad-Alta-red)
 
@@ -158,7 +158,7 @@ reutilizando la lógica de negocio entre el CLI y la API:
 El repositorio contiene **dos implementaciones** del mismo taxímetro:
 
 - [`taximetro/`](taximetro/) + [`web/`](web/): la referencia usada para desarrollar y probar
-  las 4 fases (Flask + SQLite, 57 tests, Docker). Pensada para self-host
+  las 4 fases (Flask + SQLite, 64 tests, Docker). Pensada para self-host
   (`docker compose up`) o para correr en local.
 - [`backend/`](backend/) + [`frontend/`](frontend/): lo que se **despliega de verdad**, en la
   cuenta personal (`costanna`), no en el repositorio de la organización:
@@ -172,10 +172,11 @@ contraseña hasheada, roles (**responsable de flota** ve el historial de
 todos los conductores con el total de cada uno y el total general;
 **taxista** solo el suyo — el primer usuario que se registra en cada
 instalación es automáticamente el responsable), tarifas cambiables en
-caliente desde un panel en la propia web (sin redeploy: se guardan en
-la base de datos, no en fichero ni en variables de entorno) y logging
-estructurado a stdout. 92 tests automatizados en total (57 en
-`tests/` + 35 en `backend/tests/`).
+caliente desde un panel en la propia web (sin redeploy: `backend/` las
+guarda en la base de datos y `taximetro/` las escribe en `config.json`)
+y logging estructurado. El historial muestra inicio, duración e importe
+de cada carrera y lo recaudado hoy. 104 tests automatizados en total
+(64 en `tests/` + 40 en `backend/tests/`).
 
 `SECRET_KEY` se configura como variable de entorno en Render (ver
 `backend/.env.example`) — conviene fijarlo explícitamente (con
@@ -188,9 +189,12 @@ de referencia del enunciado y no debe recibir pushes de este trabajo.
 
 Notas de alcance del prototipo:
 
-- La API modela **un taxi por instancia** (un `Taximetro` en memoria por
-  proceso), suficiente para validar el concepto; escalar a flota implica
-  un `Taximetro` por vehículo/sesión, no un cambio de arquitectura.
+- La API Flask modela **un taxi por instancia** (un `Taximetro` en memoria
+  por proceso), suficiente para validar el concepto; escalar a flota implica
+  un `Taximetro` por vehículo/sesión, no un cambio de arquitectura. Mientras
+  hay una carrera en curso no se puede iniciar otra, y solo su conductor o
+  el responsable de flota pueden cambiarla de estado o finalizarla. El
+  backend desplegado sí lleva una carrera por conductor.
 - El historial usa **SQLite** (cumple "base de datos que garantiza
   integridad y permite consultas estructuradas" sin añadir infraestructura
   para un prototipo de este tamaño); migrar a Postgres es cambiar una
@@ -208,7 +212,9 @@ docker compose up --build          # o: make docker-up
 
 Abre `http://localhost:5000`. El historial y los usuarios se guardan en
 volúmenes (`taximetro_data`, `taximetro_logs`) que sobreviven a reinicios
-del contenedor.
+del contenedor. Las tarifas viven en `config.json`, montado desde esta
+carpeta: se pueden cambiar desde el panel web o editando el fichero y
+reiniciando el contenedor. El contenedor sirve la aplicación con gunicorn.
 
 ### En local (desarrollo)
 
@@ -271,7 +277,8 @@ make format                         # corrige
 ```
 
 El pipeline de CI (`.github/workflows/ci.yml`) ejecuta lint + toda la
-suite de tests en cada push y PR a `main`, en Python 3.11 y 3.12.
+suite de tests en cada push y PR a `main`, en Python 3.11 y 3.12, y
+comprueba que `docker compose up` levanta la web.
 
 > **Windows:** el código usa emoji en los mensajes de consola. Si
 > `flake8`/`black` avisan de un error de codificación al leer algún

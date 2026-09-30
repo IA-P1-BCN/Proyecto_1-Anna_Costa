@@ -50,3 +50,20 @@ jobs:
 
       - name: Tests del backend (unitarios + integración)
         run: pytest backend/tests -v
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Levantar con un único comando
+        run: docker compose up -d --build
+
+      - name: Comprobar que la web responde
+        run: >
+          curl -fsS --retry 15 --retry-delay 2 --retry-all-errors
+          http://localhost:5000/ | grep -q "Taxímetro"
+
+      - name: Logs del contenedor si falla
+        if: failure()
+        run: docker compose logs

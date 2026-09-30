@@ -6,6 +6,7 @@ services:
     environment:
       - TAXIMETRO_SECRET_KEY=${TAXIMETRO_SECRET_KEY:-}
     volumes:
+      - ./config.json:/app/config.json
       - taximetro_data:/app/data
       - taximetro_logs:/app/logs
     restart: unless-stopped
