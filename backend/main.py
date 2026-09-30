@@ -49,7 +49,7 @@ def on_startup():
 
 
 def _obtener_tarifas(db: Session) -> Tarifas:
-    fila = db.query(Tarifas).first()
+    fila = db.query(Tarifas).order_by(Tarifas.id).first()
     if fila is None:
         semilla = cargar_tarifas()
         fila = Tarifas(
@@ -159,6 +159,9 @@ def actualizar_tarifas(
     if datos.tarifa_parado <= 0 or datos.tarifa_movimiento <= 0:
         raise HTTPException(status_code=400, detail="Las tarifas deben ser positivas.")
     fila = _obtener_tarifas(db)
+    # Lo ya recorrido por las carreras en curso se cobra con la tarifa anterior.
+    for carrera in db.query(Carrera).filter(Carrera.en_curso.is_(True)):
+        _acumular_hasta_ahora(carrera, fila)
     fila.tarifa_parado = datos.tarifa_parado
     fila.tarifa_movimiento = datos.tarifa_movimiento
     db.commit()
@@ -174,6 +177,13 @@ def actualizar_tarifas(
 
 @app.post("/carreras", response_model=CarreraOut, status_code=201)
 def iniciar_carrera(db: Session = Depends(get_db), identidad: Identidad = Depends(requiere_token)):
+    activa = (
+        db.query(Carrera)
+        .filter(Carrera.usuario == identidad.username, Carrera.en_curso.is_(True))
+        .first()
+    )
+    if activa is not None:
+        raise HTTPException(status_code=409, detail="Ya tienes una carrera en curso.")
     ahora = datetime.datetime.utcnow()
     carrera = Carrera(
         usuario=identidad.username,

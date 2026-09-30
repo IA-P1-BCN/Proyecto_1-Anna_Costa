@@ -117,6 +117,14 @@ async function cargarPanelTarifas() {
   }
 }
 
+function seguirCarrera(carrera) {
+  carreraId = carrera.id;
+  actualizarPanel(carrera);
+  activarControles(true);
+  clearInterval(intervalo);
+  intervalo = setInterval(refrescarCarreraActual, 1000);
+}
+
 function resetearPanel() {
   clearInterval(intervalo);
   carreraId = null;
@@ -159,15 +167,16 @@ async function llamarApi(path, options = {}) {
 }
 
 async function iniciarCarrera() {
+  btnIniciar.disabled = true;
   try {
     mostrarMensaje("");
     const carrera = await llamarApi("/carreras", { method: "POST" });
-    carreraId = carrera.id;
-    actualizarPanel(carrera);
-    activarControles(true);
-    intervalo = setInterval(refrescarCarreraActual, 1000);
+    seguirCarrera(carrera);
     await cargarHistorial();
   } catch (error) {
+    // Si ya había una en curso (otra pestaña, sesión anterior), la retomamos.
+    if (token) await cargarHistorial();
+    activarControles(Boolean(carreraId));
     mostrarMensaje(`No se pudo iniciar la carrera: ${error.message}`);
   }
 }
@@ -190,24 +199,46 @@ async function finalizarCarrera() {
   try {
     const carrera = await llamarApi(`/carreras/${carreraId}/finalizar`, { method: "POST" });
     actualizarPanel(carrera);
-    activarControles(false);
-    clearInterval(intervalo);
-    carreraId = null;
+    resetearControlesTrasFinalizar();
     await cargarHistorial();
   } catch (error) {
     mostrarMensaje(`No se pudo finalizar la carrera: ${error.message}`);
   }
 }
 
+let refrescando = false;
+let sinConexion = false;
+
 async function refrescarCarreraActual() {
-  if (!carreraId) return;
+  if (!carreraId || refrescando) return;
+  const id = carreraId;
+  refrescando = true;
   try {
-    const carrera = await llamarApi(`/carreras/${carreraId}`);
+    const carrera = await llamarApi(`/carreras/${id}`);
+    // Mientras esperábamos, la carrera pudo finalizarse o cambiar el usuario.
+    if (carreraId !== id) return;
+    if (sinConexion) {
+      sinConexion = false;
+      mostrarMensaje("");
+    }
     actualizarPanel(carrera);
+    if (!carrera.en_curso) {
+      resetearControlesTrasFinalizar();
+      await cargarHistorial();
+    }
   } catch (error) {
-    clearInterval(intervalo);
-    mostrarMensaje(`Se perdió la conexión con la carrera: ${error.message}`);
+    if (carreraId !== id) return;
+    sinConexion = true;
+    mostrarMensaje(`Sin conexión con la carrera, reintentando: ${error.message}`);
+  } finally {
+    refrescando = false;
   }
+}
+
+function resetearControlesTrasFinalizar() {
+  activarControles(false);
+  clearInterval(intervalo);
+  carreraId = null;
 }
 
 function mostrarResumenPorConductor(carreras) {
@@ -223,7 +254,8 @@ function mostrarResumenPorConductor(carreras) {
   listaResumenConductoresEl.innerHTML = "";
   totales.forEach((total, conductor) => {
     const item = document.createElement("li");
-    item.innerHTML = `<span>${conductor}</span><span>${total.toFixed(2)} €</span>`;
+    item.innerHTML = `<span></span><span>${total.toFixed(2)} €</span>`;
+    item.firstElementChild.textContent = conductor;
     listaResumenConductoresEl.appendChild(item);
   });
   totalGeneralEl.textContent = `${totalGeneral.toFixed(2)} €`;
@@ -238,21 +270,17 @@ async function cargarHistorial() {
       const fila = document.createElement("tr");
       fila.innerHTML = `
         <td>${carrera.id}</td>
-        <td>${carrera.usuario || "—"}</td>
+        <td></td>
         <td>${carrera.en_curso ? "En curso" : "Finalizada"}</td>
         <td>${carrera.importe_en_vivo.toFixed(2)} €</td>
       `;
+      fila.children[1].textContent = carrera.usuario || "—";
       historialBody.appendChild(fila);
     });
     mostrarResumenPorConductor(carreras);
 
     const activa = carreras.find((carrera) => carrera.en_curso && carrera.usuario === nombreUsuario);
-    if (activa && !carreraId) {
-      carreraId = activa.id;
-      actualizarPanel(activa);
-      activarControles(true);
-      intervalo = setInterval(refrescarCarreraActual, 1000);
-    }
+    if (activa && !carreraId) seguirCarrera(activa);
   } catch (error) {
     mostrarMensaje(`No se pudo cargar el historial: ${error.message}`);
   }
@@ -271,6 +299,9 @@ formLogin.addEventListener("submit", async (evento) => {
   evento.preventDefault();
   mensajeLoginEl.textContent = "";
   const username = document.getElementById("input-usuario").value.trim();
+  const btnLogin = document.getElementById("btn-login");
+  btnLogin.disabled = true;
+  btnLogin.textContent = "Entrando…";
   try {
     const { token: nuevoToken, rol } = await llamarApi("/auth/login", {
       method: "POST",
@@ -283,6 +314,9 @@ formLogin.addEventListener("submit", async (evento) => {
     mostrarTaximetro();
   } catch (error) {
     mensajeLoginEl.textContent = error.message;
+  } finally {
+    btnLogin.disabled = false;
+    btnLogin.textContent = "Entrar";
   }
 });
 
@@ -291,6 +325,8 @@ formRegistro.addEventListener("submit", async (evento) => {
   mensajeLoginEl.textContent = "";
   const username = document.getElementById("input-registro-usuario").value.trim();
   const password = document.getElementById("input-registro-password").value;
+  const btnRegistro = document.getElementById("btn-registro");
+  btnRegistro.disabled = true;
   try {
     await llamarApi("/auth/registro", {
       method: "POST",
@@ -304,10 +340,23 @@ formRegistro.addEventListener("submit", async (evento) => {
     mostrarTaximetro();
   } catch (error) {
     mensajeLoginEl.textContent = error.message;
+  } finally {
+    btnRegistro.disabled = false;
   }
 });
 
-btnLogout.addEventListener("click", () => {
+btnLogout.addEventListener("click", async () => {
+  // La carrera se cobra en el servidor: cerrar sesión no la detiene.
+  const finalizar =
+    carreraId &&
+    confirm(
+      "Tienes una carrera en curso y seguirá contando aunque cierres sesión.\n\n" +
+        "Aceptar: finalizarla ahora.\nCancelar: dejarla en marcha.",
+    );
+  if (finalizar) {
+    await finalizarCarrera();
+    if (carreraId) return;
+  }
   limpiarSesion();
   mostrarLogin();
 });

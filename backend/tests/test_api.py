@@ -51,6 +51,18 @@ def test_registro_login_y_flujo_completo_de_carrera(cliente):
     assert respuesta.json()["en_curso"] is False
 
 
+def test_no_se_puede_iniciar_otra_carrera_con_una_en_curso(cliente):
+    token = registrar_y_loguear(cliente)
+    carrera = cliente.post("/carreras", headers=cabeceras(token)).json()
+
+    respuesta = cliente.post("/carreras", headers=cabeceras(token))
+    assert respuesta.status_code == 409
+
+    cliente.post(f"/carreras/{carrera['id']}/finalizar", headers=cabeceras(token))
+    respuesta = cliente.post("/carreras", headers=cabeceras(token))
+    assert respuesta.status_code == 201
+
+
 def test_historial_incluye_carreras_finalizadas(cliente):
     token = registrar_y_loguear(cliente)
     carrera = cliente.post("/carreras", headers=cabeceras(token)).json()
@@ -210,3 +222,20 @@ def test_tarifa_actualizada_afecta_a_carreras_nuevas(cliente):
     carrera = cliente.post("/carreras", headers=cabeceras(token)).json()
     respuesta = cliente.get(f"/carreras/{carrera['id']}", headers=cabeceras(token))
     assert respuesta.json()["importe_en_vivo"] > 0
+
+
+def test_cambiar_tarifas_no_recalcula_lo_ya_recorrido(cliente):
+    token = registrar_y_loguear(cliente)
+    cliente.patch(
+        "/tarifas",
+        headers=cabeceras(token),
+        json={"tarifa_parado": 100000.0, "tarifa_movimiento": 100000.0},
+    )
+    carrera = cliente.post("/carreras", headers=cabeceras(token)).json()
+    cliente.patch(
+        "/tarifas",
+        headers=cabeceras(token),
+        json={"tarifa_parado": 0.001, "tarifa_movimiento": 0.001},
+    )
+    respuesta = cliente.get(f"/carreras/{carrera['id']}", headers=cabeceras(token))
+    assert respuesta.json()["importe_en_vivo"] > 1
