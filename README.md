@@ -30,7 +30,9 @@
 
 El backend está en el plan gratuito de Render: si lleva un rato sin uso, la
 primera petición puede tardar unos segundos en "despertar" (cold start).
-Ábrela un par de minutos antes de una demo en directo.
+Un workflow (`.github/workflows/keep-alive.yml`) le hace ping de 08:00 a
+24:00 para mantenerlo despierto; fuera de ese horario, ábrela un par de
+minutos antes de una demo en directo.
 
 ---
 
