@@ -61,7 +61,7 @@ jobs:
 
       - name: Comprobar que la web responde
         run: >
-          curl -fsS --retry 15 --retry-delay 2 --retry-connrefused
+          curl -fsS --retry 15 --retry-delay 2 --retry-all-errors
           http://localhost:5000/ | grep -q "Taxímetro"
 
       - name: Logs del contenedor si falla
