@@ -25,8 +25,7 @@ document.querySelectorAll(".boton-ver-clave").forEach((boton) => {
     boton.setAttribute("aria-pressed", String(mostrar));
     boton.setAttribute("aria-label", mostrar ? "Ocultar contraseña" : "Mostrar contraseña");
     boton.title = mostrar ? "Ocultar contraseña" : "Mostrar contraseña";
-    boton.querySelector(".icono-ver").hidden = mostrar;
-    boton.querySelector(".icono-ocultar").hidden = !mostrar;
+    boton.textContent = mostrar ? "Ocultar" : "Ver";
   });
 });
 
@@ -155,6 +154,7 @@ async function llamarApi(path, options = {}) {
       ...(options.headers || {}),
     },
   });
+  if (respuesta.status < 500) marcarServidorListo();
   if (!respuesta.ok) {
     if (respuesta.status === 401) {
       limpiarSesion();
@@ -381,25 +381,34 @@ formTarifas.addEventListener("submit", async (evento) => {
 const avisoServidorEl = document.getElementById("aviso-servidor");
 const avisoServidorTextoEl = document.getElementById("aviso-servidor-texto");
 
+let servidorListo = false;
+
+function marcarServidorListo() {
+  if (servidorListo || !avisoServidorEl) return;
+  servidorListo = true;
+  avisoServidorEl.classList.add("listo");
+  avisoServidorTextoEl.textContent = "Servidor listo.";
+  setTimeout(() => avisoServidorEl.classList.add("oculto"), 1500);
+  setTimeout(() => (avisoServidorEl.hidden = true), 2000);
+}
+
 // El backend (Render, plan gratuito) se duerme tras un rato sin uso y tarda
-// unos segundos en arrancar: avisamos y esperamos a que /health responda.
+// unos segundos en arrancar: avisamos y esperamos a que responda. Se sondea
+// /openapi.json porque algunos bloqueadores de anuncios cortan /health.
 async function esperarServidor() {
   if (!avisoServidorEl) return;
   const inicio = Date.now();
-  while (Date.now() - inicio < 120000) {
+  while (!servidorListo && Date.now() - inicio < 120000) {
     try {
-      const respuesta = await fetch(`${API_BASE}/health`, { cache: "no-store" });
-      if (respuesta.ok) {
-        avisoServidorEl.classList.add("listo");
-        avisoServidorTextoEl.textContent = "Servidor listo.";
-        setTimeout(() => avisoServidorEl.classList.add("oculto"), 1500);
-        setTimeout(() => (avisoServidorEl.hidden = true), 2000);
-        return;
-      }
+      const respuesta = await fetch(`${API_BASE}/openapi.json`, { cache: "no-store" });
+      if (respuesta.ok) marcarServidorListo();
     } catch {}
+    if (servidorListo) return;
     await new Promise((resolver) => setTimeout(resolver, 3000));
   }
-  avisoServidorTextoEl.textContent = "El servidor no responde. Recarga la página en unos segundos.";
+  if (!servidorListo) {
+    avisoServidorTextoEl.textContent = "El servidor no responde. Recarga la página en unos segundos.";
+  }
 }
 
 esperarServidor();
