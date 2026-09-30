@@ -81,6 +81,33 @@ def test_no_se_puede_registrar_el_mismo_username_dos_veces(cliente):
     assert respuesta.status_code == 409
 
 
+def test_registro_rechaza_usuario_o_password_demasiado_cortos(cliente):
+    respuesta = cliente.post("/auth/registro", json={"username": "  ", "password": "clave-larga-1"})
+    assert respuesta.status_code == 400
+
+    respuesta = cliente.post("/auth/registro", json={"username": "conductor", "password": "corta"})
+    assert respuesta.status_code == 400
+
+
+def test_registro_quita_los_espacios_del_usuario(cliente):
+    cliente.post("/auth/registro", json={"username": "  jefa  ", "password": "clave-jefa-123"})
+    respuesta = cliente.post("/auth/login", json={"username": "jefa", "password": "clave-jefa-123"})
+    assert respuesta.status_code == 200
+
+
+def test_el_responsable_puede_finalizar_la_carrera_de_otro(cliente):
+    token_responsable = registrar_y_loguear(cliente, username="jefa", password="clave-jefa-123")
+    token_taxista = registrar_y_loguear(cliente, username="conductor_b", password="clave-b-12345")
+    carrera = cliente.post("/carreras", headers=cabeceras(token_taxista)).json()
+
+    respuesta = cliente.post(
+        f"/carreras/{carrera['id']}/finalizar", headers=cabeceras(token_responsable)
+    )
+    assert respuesta.status_code == 200
+    assert respuesta.json()["en_curso"] is False
+    assert respuesta.json()["usuario"] == "conductor_b"
+
+
 def test_se_pueden_registrar_varios_usuarios_distintos(cliente):
     registrar_y_loguear(cliente)
     respuesta = cliente.post(

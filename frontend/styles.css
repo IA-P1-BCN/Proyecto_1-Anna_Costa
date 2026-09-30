@@ -264,6 +264,17 @@ button:disabled {
   font-weight: 600;
 }
 
+.historial-hoy {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+  color: #cbd5e1;
+}
+
+.historial .enlace-finalizar {
+  padding: 0;
+  color: #f87171;
+}
+
 #pantalla-login form {
   display: flex;
   flex-direction: column;

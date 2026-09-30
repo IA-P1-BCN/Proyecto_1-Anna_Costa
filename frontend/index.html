@@ -10,7 +10,7 @@
     href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=JetBrains+Mono:wght@500&display=swap"
     rel="stylesheet"
   />
-  <link rel="stylesheet" href="styles.css?v=4" />
+  <link rel="stylesheet" href="styles.css?v=5" />
 </head>
 <body>
   <header class="navbar">
@@ -56,11 +56,11 @@
     <p id="mensaje-login" class="mensaje"></p>
     <button id="btn-mostrar-registro" class="enlace">¿Primera vez? Crea el usuario</button>
     <form id="form-registro" hidden>
-      <label>Nuevo usuario<input id="input-registro-usuario" type="text" required /></label>
+      <label>Nuevo usuario<input id="input-registro-usuario" type="text" minlength="3" maxlength="30" required /></label>
       <label>
         Nueva contraseña
         <div class="campo-clave">
-          <input id="input-registro-password" type="password" required />
+          <input id="input-registro-password" type="password" minlength="8" autocomplete="new-password" required />
           <button type="button" class="boton-ver-clave" data-input="input-registro-password" aria-label="Mostrar contraseña" aria-pressed="false" title="Mostrar contraseña">Ver</button>
         </div>
       </label>
@@ -103,12 +103,13 @@
 
     <div class="historial">
       <h2>Historial de carreras</h2>
+      <p class="historial-hoy">Recaudado hoy: <strong id="total-hoy">0.00 €</strong></p>
       <table>
         <thead>
           <tr>
-            <th>#</th>
             <th>Conductor</th>
-            <th>Estado</th>
+            <th>Inicio</th>
+            <th>Duración</th>
             <th>Importe</th>
           </tr>
         </thead>
@@ -152,6 +153,6 @@
   </footer>
 
   <script src="config.js"></script>
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

@@ -34,6 +34,7 @@ const rolUsuarioEl = document.getElementById("rol-usuario");
 const resumenConductoresEl = document.getElementById("resumen-conductores");
 const listaResumenConductoresEl = document.getElementById("lista-resumen-conductores");
 const totalGeneralEl = document.getElementById("total-general");
+const totalHoyEl = document.getElementById("total-hoy");
 const panelTarifasEl = document.getElementById("panel-tarifas");
 const formTarifas = document.getElementById("form-tarifas");
 const mensajeTarifasEl = document.getElementById("mensaje-tarifas");
@@ -161,7 +162,8 @@ async function llamarApi(path, options = {}) {
       mostrarLogin();
     }
     const detalle = await respuesta.json().catch(() => ({}));
-    throw new Error(detalle.detail || `Error ${respuesta.status}`);
+    const mensaje = typeof detalle.detail === "string" ? detalle.detail : `Error ${respuesta.status}`;
+    throw new Error(mensaje);
   }
   return respuesta.json();
 }
@@ -262,21 +264,76 @@ function mostrarResumenPorConductor(carreras) {
   resumenConductoresEl.hidden = totales.size < 2;
 }
 
+// El backend guarda las fechas en UTC sin zona horaria.
+function aFecha(valor) {
+  return valor ? new Date(`${valor}Z`) : null;
+}
+
+function formatearDuracion(segundos) {
+  const total = Math.max(0, Math.round(segundos));
+  const horas = Math.floor(total / 3600);
+  const mm = Math.floor((total % 3600) / 60).toString().padStart(2, "0");
+  const ss = (total % 60).toString().padStart(2, "0");
+  return horas ? `${horas}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+function esDeHoy(fecha) {
+  return Boolean(fecha) && fecha.toDateString() === new Date().toDateString();
+}
+
+async function finalizarCarreraAjena(carrera, boton) {
+  if (!confirm(`¿Finalizar la carrera en curso de ${carrera.usuario || "este conductor"}?`)) return;
+  boton.disabled = true;
+  try {
+    await llamarApi(`/carreras/${carrera.id}/finalizar`, { method: "POST" });
+    await cargarHistorial();
+  } catch (error) {
+    boton.disabled = false;
+    mostrarMensaje(`No se pudo finalizar la carrera: ${error.message}`);
+  }
+}
+
 async function cargarHistorial() {
   try {
     const carreras = await llamarApi("/carreras");
+    let totalHoy = 0;
     historialBody.innerHTML = "";
     carreras.forEach((carrera) => {
+      const inicio = aFecha(carrera.inicio);
+      const fin = aFecha(carrera.fin);
+      const fecha = inicio.toLocaleString("es-ES", {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
       const fila = document.createElement("tr");
       fila.innerHTML = `
-        <td>${carrera.id}</td>
         <td></td>
-        <td>${carrera.en_curso ? "En curso" : "Finalizada"}</td>
+        <td>${fecha}</td>
+        <td></td>
         <td>${carrera.importe_en_vivo.toFixed(2)} €</td>
       `;
-      fila.children[1].textContent = carrera.usuario || "—";
+      fila.children[0].textContent = carrera.usuario || "—";
+      const celdaDuracion = fila.children[2];
+      if (carrera.en_curso) {
+        celdaDuracion.textContent = "En curso";
+        // El responsable puede cerrar las carreras que otro conductor dejó abiertas.
+        if (rolUsuario === "responsable" && carrera.usuario !== nombreUsuario) {
+          const boton = document.createElement("button");
+          boton.type = "button";
+          boton.className = "enlace enlace-finalizar";
+          boton.textContent = "Finalizar";
+          boton.addEventListener("click", () => finalizarCarreraAjena(carrera, boton));
+          celdaDuracion.append(" ", boton);
+        }
+      } else {
+        celdaDuracion.textContent = formatearDuracion((fin - inicio) / 1000);
+        if (esDeHoy(fin)) totalHoy += carrera.importe_en_vivo;
+      }
       historialBody.appendChild(fila);
     });
+    totalHoyEl.textContent = `${totalHoy.toFixed(2)} €`;
     mostrarResumenPorConductor(carreras);
 
     const activa = carreras.find((carrera) => carrera.en_curso && carrera.usuario === nombreUsuario);
@@ -285,6 +342,13 @@ async function cargarHistorial() {
     mostrarMensaje(`No se pudo cargar el historial: ${error.message}`);
   }
 }
+
+// Cerrar la pestaña no detiene la carrera: el navegador pide confirmación.
+window.addEventListener("beforeunload", (evento) => {
+  if (!carreraId) return;
+  evento.preventDefault();
+  evento.returnValue = "";
+});
 
 btnIniciar.addEventListener("click", iniciarCarrera);
 btnParado.addEventListener("click", () => cambiarEstado("parado"));
