@@ -3,9 +3,15 @@ from pathlib import Path
 
 from flask import Flask, current_app, g, jsonify, request, send_from_directory
 
-from taximetro.auth import CredencialesInvalidasError, GestorUsuarios, TokenInvalidoError
-from taximetro.config import cargar_tarifas
-from taximetro.core import ESTADOS_VALIDOS, CarreraNoIniciadaError, Taximetro
+from taximetro.auth import (
+    CredencialesInvalidasError,
+    CredencialesNoValidasError,
+    GestorUsuarios,
+    TokenInvalidoError,
+    validar_credenciales_nuevas,
+)
+from taximetro.config import RUTA_CONFIG_DEFECTO, cargar_tarifas, guardar_tarifas
+from taximetro.core import ESTADOS_VALIDOS, CarreraEnCursoError, CarreraNoIniciadaError, Taximetro
 from taximetro.logger import get_logger
 from taximetro.storage import AlmacenCarreras
 
@@ -36,7 +42,8 @@ def requiere_token(vista):
 def create_app(ruta_bd=None, ruta_usuarios=None, ruta_config=None, servir_web=True):
     app = Flask(__name__)
 
-    tarifas = cargar_tarifas(ruta_config) if ruta_config else cargar_tarifas()
+    ruta_config = ruta_config or RUTA_CONFIG_DEFECTO
+    tarifas = cargar_tarifas(ruta_config)
     taximetro = Taximetro(**tarifas)
     almacen = AlmacenCarreras(ruta_bd) if ruta_bd else AlmacenCarreras()
     gestor_usuarios = GestorUsuarios(ruta_usuarios) if ruta_usuarios else GestorUsuarios()
@@ -45,12 +52,26 @@ def create_app(ruta_bd=None, ruta_usuarios=None, ruta_config=None, servir_web=Tr
     app.config["almacen"] = almacen
     app.config["gestor_usuarios"] = gestor_usuarios
 
+    # Un taxi por instancia: se recuerda quién conduce la carrera en curso.
+    carrera_actual = {"conductor": None}
+
+    def _carrera_de_otro():
+        return (
+            taximetro.en_curso
+            and carrera_actual["conductor"] != g.username
+            and g.rol != "responsable"
+        )
+
     @app.post("/api/auth/registro")
     def registro():
         datos = request.get_json(silent=True) or {}
         username, password = datos.get("username"), datos.get("password")
-        if not username or not password:
+        if not isinstance(username, str) or not isinstance(password, str):
             return jsonify(error="username y password son obligatorios."), 400
+        try:
+            username = validar_credenciales_nuevas(username, password)
+        except CredencialesNoValidasError as exc:
+            return jsonify(error=str(exc)), 400
         if gestor_usuarios.existe_usuario(username):
             return jsonify(error="Ese usuario ya existe."), 409
         gestor_usuarios.crear_usuario(username, password)
@@ -88,8 +109,8 @@ def create_app(ruta_bd=None, ruta_usuarios=None, ruta_config=None, servir_web=Tr
             return jsonify(error="tarifa_parado y tarifa_movimiento son obligatorios."), 400
         if tarifa_parado <= 0 or tarifa_movimiento <= 0:
             return jsonify(error="Las tarifas deben ser positivas."), 400
-        taximetro.tarifa_parado = tarifa_parado
-        taximetro.tarifa_movimiento = tarifa_movimiento
+        taximetro.cambiar_tarifas(tarifa_parado, tarifa_movimiento)
+        guardar_tarifas(tarifa_parado, tarifa_movimiento, ruta_config)
         logger.info(
             "[%s] Tarifas actualizadas: parado=%.3f movimiento=%.3f",
             g.username,
@@ -101,6 +122,7 @@ def create_app(ruta_bd=None, ruta_usuarios=None, ruta_config=None, servir_web=Tr
     def _estado_json():
         return jsonify(
             en_curso=taximetro.en_curso,
+            conductor=carrera_actual["conductor"] if taximetro.en_curso else None,
             estado=taximetro.estado,
             importe_actual=round(taximetro.importe_actual(), 2),
             duracion_actual=round(taximetro.duracion_actual(), 1),
@@ -109,7 +131,11 @@ def create_app(ruta_bd=None, ruta_usuarios=None, ruta_config=None, servir_web=Tr
     @app.post("/api/carreras/iniciar")
     @requiere_token
     def iniciar():
-        taximetro.iniciar_carrera()
+        try:
+            taximetro.iniciar_carrera()
+        except CarreraEnCursoError as exc:
+            return jsonify(error=str(exc)), 409
+        carrera_actual["conductor"] = g.username
         logger.info("[%s] Carrera iniciada vía API.", g.username)
         return _estado_json()
 
@@ -120,6 +146,8 @@ def create_app(ruta_bd=None, ruta_usuarios=None, ruta_config=None, servir_web=Tr
         nuevo_estado = datos.get("estado")
         if nuevo_estado not in ESTADOS_VALIDOS:
             return jsonify(error=f"Estado inválido. Usa uno de: {sorted(ESTADOS_VALIDOS)}"), 400
+        if _carrera_de_otro():
+            return jsonify(error="La carrera en curso es de otro conductor."), 403
         try:
             cambiado = taximetro.cambiar_estado(nuevo_estado)
         except CarreraNoIniciadaError as exc:
@@ -136,11 +164,15 @@ def create_app(ruta_bd=None, ruta_usuarios=None, ruta_config=None, servir_web=Tr
     @app.post("/api/carreras/finalizar")
     @requiere_token
     def finalizar():
+        if _carrera_de_otro():
+            return jsonify(error="La carrera en curso es de otro conductor."), 403
         try:
             resumen = taximetro.finalizar_carrera()
         except CarreraNoIniciadaError as exc:
             return jsonify(error=str(exc)), 409
-        id_carrera = almacen.guardar_carrera(resumen, usuario=g.username)
+        conductor = carrera_actual["conductor"] or g.username
+        carrera_actual["conductor"] = None
+        id_carrera = almacen.guardar_carrera(resumen, usuario=conductor)
         logger.info(
             "[%s] Carrera #%s finalizada: %.2f €", g.username, id_carrera, resumen["importe_total"]
         )

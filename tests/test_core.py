@@ -100,3 +100,12 @@ def test_nueva_carrera_reinicia_el_importe(reloj_falso):
 
     taximetro.iniciar_carrera()
     assert taximetro.importe_actual() == 0.0
+
+
+def test_iniciar_con_una_carrera_en_curso_lanza_error(reloj_falso):
+    from taximetro.core import CarreraEnCursoError
+
+    taximetro = Taximetro(reloj=reloj_falso)
+    taximetro.iniciar_carrera()
+    with pytest.raises(CarreraEnCursoError):
+        taximetro.iniciar_carrera()

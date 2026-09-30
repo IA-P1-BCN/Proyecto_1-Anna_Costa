@@ -22,6 +22,19 @@ class TokenInvalidoError(Exception):
     pass
 
 
+class CredencialesNoValidasError(ValueError):
+    pass
+
+
+def validar_credenciales_nuevas(username, password):
+    username = (username or "").strip()
+    if not 3 <= len(username) <= 30:
+        raise CredencialesNoValidasError("El usuario debe tener entre 3 y 30 caracteres.")
+    if len(password or "") < 8:
+        raise CredencialesNoValidasError("La contraseña debe tener al menos 8 caracteres.")
+    return username
+
+
 def _clave_secreta():
     return os.environ.get("TAXIMETRO_SECRET_KEY") or secrets.token_hex(32)
 

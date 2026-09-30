@@ -166,7 +166,7 @@ def test_dos_apps_no_comparten_estado(dos_apps_independientes, tmp_path):
     cliente_a = app_a.test_client()
     cliente_b = app_b.test_client()
 
-    token_a = registrar_y_loguear(cliente_a, username="a", password="clave-a-123")
+    token_a = registrar_y_loguear(cliente_a, username="conductor_a", password="clave-a-123")
 
     respuesta = cliente_b.get("/api/carreras/historial", headers=cabeceras(token_a))
     assert respuesta.status_code == 401
@@ -215,3 +215,82 @@ def test_actualizar_tarifas_con_valor_negativo_falla(cliente):
         json={"tarifa_parado": -1, "tarifa_movimiento": 0.09},
     )
     assert respuesta.status_code == 400
+
+
+def test_registro_rechaza_usuario_o_password_demasiado_cortos(cliente):
+    respuesta = cliente.post(
+        "/api/auth/registro", json={"username": "  ", "password": "clave-larga-1"}
+    )
+    assert respuesta.status_code == 400
+
+    respuesta = cliente.post(
+        "/api/auth/registro", json={"username": "conductor", "password": "corta"}
+    )
+    assert respuesta.status_code == 400
+
+
+def test_iniciar_con_una_carrera_en_curso_no_la_pisa(app, cliente, reloj_falso):
+    app.config["taximetro"]._reloj = reloj_falso
+    token = registrar_y_loguear(cliente)
+    cliente.post("/api/carreras/iniciar", headers=cabeceras(token))
+    reloj_falso.avanzar(10)
+
+    respuesta = cliente.post("/api/carreras/iniciar", headers=cabeceras(token))
+    assert respuesta.status_code == 409
+
+    actual = cliente.get("/api/carreras/actual", headers=cabeceras(token)).get_json()
+    assert actual["importe_actual"] == pytest.approx(0.20)
+
+
+def test_un_taxista_no_puede_tocar_la_carrera_de_otro(cliente):
+    token_responsable = registrar_y_loguear(cliente, username="jefa", password="clave-jefa-123")
+    token_a = registrar_y_loguear(cliente, username="conductor_a", password="clave-a-123")
+    token_b = registrar_y_loguear(cliente, username="conductor_b", password="clave-b-123")
+    cliente.post("/api/carreras/iniciar", headers=cabeceras(token_a))
+
+    respuesta = cliente.post(
+        "/api/carreras/estado", headers=cabeceras(token_b), json={"estado": "movimiento"}
+    )
+    assert respuesta.status_code == 403
+    respuesta = cliente.post("/api/carreras/finalizar", headers=cabeceras(token_b))
+    assert respuesta.status_code == 403
+
+    respuesta = cliente.post("/api/carreras/finalizar", headers=cabeceras(token_responsable))
+    assert respuesta.status_code == 200
+    historial = cliente.get("/api/carreras/historial", headers=cabeceras(token_responsable))
+    assert historial.get_json()["carreras"][0]["usuario"] == "conductor_a"
+
+
+def test_cambiar_tarifas_no_recalcula_lo_ya_recorrido(app, cliente, reloj_falso):
+    app.config["taximetro"]._reloj = reloj_falso
+    token = registrar_y_loguear(cliente)
+    cliente.post("/api/carreras/iniciar", headers=cabeceras(token))
+    reloj_falso.avanzar(10)
+
+    cliente.patch(
+        "/api/tarifas", headers=cabeceras(token), json={"tarifa_parado": 5, "tarifa_movimiento": 5}
+    )
+
+    actual = cliente.get("/api/carreras/actual", headers=cabeceras(token)).get_json()
+    assert actual["importe_actual"] == pytest.approx(0.20)
+
+
+def test_las_tarifas_cambiadas_sobreviven_a_un_reinicio(tmp_path):
+    from taximetro.api import create_app
+
+    rutas = {
+        "ruta_bd": tmp_path / "taximetro.db",
+        "ruta_usuarios": tmp_path / "usuarios.json",
+        "ruta_config": tmp_path / "config.json",
+    }
+    cliente = create_app(**rutas).test_client()
+    token = registrar_y_loguear(cliente)
+    cliente.patch(
+        "/api/tarifas",
+        headers=cabeceras(token),
+        json={"tarifa_parado": 0.03, "tarifa_movimiento": 0.07},
+    )
+
+    reiniciada = create_app(**rutas)
+    assert reiniciada.config["taximetro"].tarifa_parado == 0.03
+    assert reiniciada.config["taximetro"].tarifa_movimiento == 0.07

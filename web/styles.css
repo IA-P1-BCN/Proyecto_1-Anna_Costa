@@ -316,13 +316,18 @@ body {
   width: 100%;
 }
 
+/* El atributo hidden debe ganar a cualquier display de las clases. */
+[hidden] {
+  display: none !important;
+}
+
 .campo-clave {
   position: relative;
   display: flex;
 }
 
 .campo-clave input {
-  padding-right: 42px;
+  padding-right: 76px;
 }
 
 .boton-ver-clave {
@@ -330,9 +335,10 @@ body {
   right: 4px;
   top: 50%;
   transform: translateY(-50%);
-  width: 32px;
+  width: auto;
   height: 32px;
-  padding: 0;
+  padding: 0 10px;
+  font-size: 0.8rem;
   border: none;
   background: transparent;
   color: var(--texto-suave);

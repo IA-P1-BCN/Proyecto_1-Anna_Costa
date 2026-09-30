@@ -44,8 +44,7 @@
       boton.setAttribute("aria-pressed", String(mostrar));
       boton.setAttribute("aria-label", mostrar ? "Ocultar contraseña" : "Mostrar contraseña");
       boton.title = mostrar ? "Ocultar contraseña" : "Mostrar contraseña";
-      boton.querySelector(".icono-ver").hidden = mostrar;
-      boton.querySelector(".icono-ocultar").hidden = !mostrar;
+      boton.textContent = mostrar ? "Ocultar" : "Ver";
     });
   });
 
@@ -55,7 +54,13 @@
   let intervaloActualizacion = null;
   let fallosConsecutivos = 0;
   let errorAccionTimeout = null;
-  let ultimoEstado = { en_curso: false, estado: null, importe_actual: 0, duracion_actual: 0 };
+  let ultimoEstado = {
+    en_curso: false,
+    conductor: null,
+    estado: null,
+    importe_actual: 0,
+    duracion_actual: 0,
+  };
 
   const UMBRAL_FALLOS_PARA_AVISO = 3;
 
@@ -140,8 +145,23 @@
   }
 
   function actualizarEstadoUI(estado) {
-    const { en_curso: enCurso, estado: estadoTaxi, importe_actual: importe, duracion_actual: duracion = 0 } = estado;
-    ultimoEstado = { en_curso: enCurso, estado: estadoTaxi, importe_actual: importe, duracion_actual: duracion };
+    const {
+      en_curso: enCurso,
+      conductor = null,
+      estado: estadoTaxi,
+      importe_actual: importe,
+      duracion_actual: duracion = 0,
+    } = estado;
+    ultimoEstado = {
+      en_curso: enCurso,
+      conductor,
+      estado: estadoTaxi,
+      importe_actual: importe,
+      duracion_actual: duracion,
+    };
+    // La carrera de otro conductor solo puede tocarla el responsable de flota.
+    const ajena =
+      enCurso && conductor && conductor !== nombreUsuario && rolUsuario !== "responsable";
 
     const nuevoValor = Number(importe).toFixed(2);
     if (importeActual.textContent !== nuevoValor) {
@@ -153,9 +173,9 @@
     if (enCurso) duracionActual.textContent = formatearDuracion(duracion);
 
     botonIniciar.disabled = enCurso;
-    botonParado.disabled = !enCurso || estadoTaxi === "parado";
-    botonMovimiento.disabled = !enCurso || estadoTaxi === "movimiento";
-    botonFinalizar.disabled = !enCurso;
+    botonParado.disabled = !enCurso || ajena || estadoTaxi === "parado";
+    botonMovimiento.disabled = !enCurso || ajena || estadoTaxi === "movimiento";
+    botonFinalizar.disabled = !enCurso || ajena;
 
     if (enCurso && estadoTaxi) {
       chipEstado.hidden = false;
@@ -277,7 +297,8 @@
     listaResumenConductoresEl.innerHTML = "";
     totales.forEach((total, conductor) => {
       const item = document.createElement("li");
-      item.innerHTML = `<span>${conductor}</span><span>${total.toFixed(2)} €</span>`;
+      item.innerHTML = `<span></span><span>${total.toFixed(2)} €</span>`;
+      item.firstElementChild.textContent = conductor;
       listaResumenConductoresEl.appendChild(item);
     });
     resumenConductoresEl.hidden = totales.size < 2;
@@ -297,7 +318,8 @@
           hour: "2-digit",
           minute: "2-digit",
         });
-        item.innerHTML = `<span>${carrera.usuario || "—"} · ${hora}</span><span>${carrera.importe_total.toFixed(2)} €</span>`;
+        item.innerHTML = `<span></span><span>${carrera.importe_total.toFixed(2)} €</span>`;
+        item.firstElementChild.textContent = `${carrera.usuario || "—"} · ${hora}`;
         listaHistorial.appendChild(item);
       });
     } catch {

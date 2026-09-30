@@ -9,6 +9,12 @@ logger = get_logger(__name__)
 RUTA_CONFIG_DEFECTO = Path(__file__).resolve().parent.parent / "config.json"
 
 
+def guardar_tarifas(tarifa_parado, tarifa_movimiento, ruta_config=RUTA_CONFIG_DEFECTO):
+    contenido = {"tarifa_parado": tarifa_parado, "tarifa_movimiento": tarifa_movimiento}
+    Path(ruta_config).write_text(json.dumps(contenido, indent=2) + "\n", encoding="utf-8")
+    logger.info("Tarifas guardadas en %s", ruta_config)
+
+
 def cargar_tarifas(ruta_config=RUTA_CONFIG_DEFECTO):
     tarifas_defecto = {
         "tarifa_parado": TARIFA_PARADO_DEFECTO,

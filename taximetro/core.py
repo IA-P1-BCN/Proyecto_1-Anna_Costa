@@ -17,6 +17,10 @@ class CarreraNoIniciadaError(RuntimeError):
     pass
 
 
+class CarreraEnCursoError(RuntimeError):
+    pass
+
+
 class Taximetro:
     """Gestiona el estado y el cálculo de tarifa de una única carrera."""
 
@@ -46,6 +50,8 @@ class Taximetro:
         self.instante_ultimo_cambio = ahora
 
     def iniciar_carrera(self):
+        if self.en_curso:
+            raise CarreraEnCursoError("Ya hay una carrera en curso.")
         ahora = self._reloj()
         self.estado = ESTADO_PARADO
         self.importe_acumulado = 0.0
@@ -63,6 +69,13 @@ class Taximetro:
         self._acumular_hasta_ahora()
         self.estado = nuevo_estado
         return True
+
+    def cambiar_tarifas(self, tarifa_parado, tarifa_movimiento):
+        # Lo ya recorrido se cobra con la tarifa anterior.
+        if self.en_curso:
+            self._acumular_hasta_ahora()
+        self.tarifa_parado = tarifa_parado
+        self.tarifa_movimiento = tarifa_movimiento
 
     def importe_actual(self):
         if not self.en_curso:
