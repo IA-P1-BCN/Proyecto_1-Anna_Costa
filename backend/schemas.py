@@ -1,7 +1,7 @@
 import datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class CambioEstado(BaseModel):
@@ -18,8 +18,7 @@ class CarreraOut(BaseModel):
     inicio: datetime.datetime
     fin: Optional[datetime.datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RegistroUsuario(BaseModel):

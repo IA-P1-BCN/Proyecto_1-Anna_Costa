@@ -1,5 +1,5 @@
-import datetime
 import os
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
 from fastapi import Depends, FastAPI, Header, HTTPException
@@ -10,7 +10,7 @@ import auth
 from config import cargar_tarifas
 from database import Base, engine, get_db
 from logger import get_logger
-from models import Carrera, Tarifas
+from models import Carrera, Tarifas, ahora_utc
 from schemas import (
     CambioEstado,
     CarreraOut,
@@ -23,7 +23,15 @@ from schemas import (
 
 logger = get_logger(__name__)
 
-app = FastAPI(title="TaxiTech Solutions — Taxímetro API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    logger.info("Taximetro API arrancada.")
+    yield
+
+
+app = FastAPI(title="TaxiTech Solutions — Taxímetro API", lifespan=lifespan)
 
 allowed_origins = [
     origin.strip() for origin in os.environ.get("ALLOWED_ORIGINS", "*").split(",") if origin.strip()
@@ -40,12 +48,6 @@ app.add_middleware(
 class Identidad:
     username: str
     rol: str
-
-
-@app.on_event("startup")
-def on_startup():
-    Base.metadata.create_all(bind=engine)
-    logger.info("Taximetro API arrancada.")
 
 
 def _obtener_tarifas(db: Session) -> Tarifas:
@@ -67,7 +69,7 @@ def _tarifa(estado: str, tarifas: Tarifas) -> float:
 
 
 def _acumular_hasta_ahora(carrera: Carrera, tarifas: Tarifas) -> None:
-    ahora = datetime.datetime.utcnow()
+    ahora = ahora_utc()
     segundos_transcurridos = (ahora - carrera.ultimo_cambio).total_seconds()
     carrera.importe_acumulado += segundos_transcurridos * _tarifa(carrera.estado, tarifas)
     carrera.ultimo_cambio = ahora
@@ -75,7 +77,7 @@ def _acumular_hasta_ahora(carrera: Carrera, tarifas: Tarifas) -> None:
 
 def _con_importe_en_vivo(carrera: Carrera, tarifas: Tarifas) -> Carrera:
     if carrera.en_curso:
-        ahora = datetime.datetime.utcnow()
+        ahora = ahora_utc()
         segundos_transcurridos = (ahora - carrera.ultimo_cambio).total_seconds()
         carrera.importe_en_vivo = round(
             carrera.importe_acumulado + segundos_transcurridos * _tarifa(carrera.estado, tarifas), 2
@@ -184,7 +186,7 @@ def iniciar_carrera(db: Session = Depends(get_db), identidad: Identidad = Depend
     )
     if activa is not None:
         raise HTTPException(status_code=409, detail="Ya tienes una carrera en curso.")
-    ahora = datetime.datetime.utcnow()
+    ahora = ahora_utc()
     carrera = Carrera(
         usuario=identidad.username,
         estado="parado",
@@ -228,7 +230,7 @@ def finalizar_carrera(
     tarifas = _obtener_tarifas(db)
     _acumular_hasta_ahora(carrera, tarifas)
     carrera.en_curso = False
-    carrera.fin = datetime.datetime.utcnow()
+    carrera.fin = ahora_utc()
     db.commit()
     db.refresh(carrera)
     logger.info(
