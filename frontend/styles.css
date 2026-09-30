@@ -76,6 +76,11 @@ body {
   text-align: center;
 }
 
+/* El atributo hidden debe ganar a cualquier display de las clases. */
+[hidden] {
+  display: none !important;
+}
+
 .aviso-servidor {
   width: 100%;
   max-width: 420px;
@@ -290,7 +295,7 @@ button:disabled {
 }
 
 .campo-clave input {
-  padding-right: 42px;
+  padding-right: 76px;
 }
 
 .boton-ver-clave {
@@ -298,10 +303,10 @@ button:disabled {
   right: 4px;
   top: 50%;
   transform: translateY(-50%);
-  width: 32px;
+  width: auto;
   height: 32px;
-  padding: 0;
-  font-size: inherit;
+  padding: 0 10px;
+  font-size: 0.8rem;
   font-weight: normal;
   border: none;
   background: transparent;
